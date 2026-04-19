@@ -289,8 +289,9 @@ class WorldRenderer:
         x = placement.x
         y = placement.y
         z = placement.z - 1
+        note_book = _written_book_item(placement.note.title, _book_pages(placement.note.content))
         commands = [
-            f"item replace block {x} {y} {z} container.0 with book 1",
+            f"item replace block {x} {y} {z} container.0 with {note_book} 1",
             f"item replace block {x} {y} {z} container.1 with book 1",
             f"item replace block {x} {y} {z} container.2 with book 1",
             f"item replace block {x} {y} {z} container.3 with book 1",
@@ -581,6 +582,15 @@ def _lectern_page_component(text: str) -> str:
 
 def _lectern_title_component(title: str) -> str:
     return "{raw:" + _snbt_single_quote(title[:32]) + "}"
+
+
+def _written_book_item(title: str, pages: list[str]) -> str:
+    page_components = ",".join(_lectern_page_component(page) for page in pages)
+    return (
+        "written_book[written_book_content={"
+        f"title:{_lectern_title_component(title)},author:{_snbt_single_quote('Mine Palace')},pages:[{page_components}]"
+        "}]"
+    )
 
 
 def _fill_commands(
