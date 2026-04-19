@@ -130,7 +130,6 @@ class SmokeTests(unittest.TestCase):
             ],
         )
 
-
 class _FakeRconClient:
     instances: list["_FakeRconClient"] = []
 

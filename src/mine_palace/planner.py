@@ -16,6 +16,11 @@ PALETTE_ORDER = [
     "jungle",
 ]
 
+VAULT_DISTRICT_GAP = 8
+DIARY_NOTE_STEP = 4
+DIARY_HUB_CLEARANCE = 14
+DIARY_ROW_GAP = 8
+
 MONTH_NAMES = [
     "Jan",
     "Feb",
@@ -79,27 +84,38 @@ def _build_vault_world_plan(
     if not district_names:
         raise ValueError("No notes found to build a world plan")
 
-    spacing = 44
-    columns = math.ceil(math.sqrt(len(district_names)))
-    rows = math.ceil(len(district_names) / columns)
-    x_offset = (columns - 1) * spacing // 2
-    z_offset = (rows - 1) * spacing // 2
-
-    districts: list[DistrictPlan] = []
+    drafts: list[DistrictPlan] = []
     for index, district_name in enumerate(district_names):
-        row = index // columns
-        column = index % columns
-        center_x = origin_x + (column * spacing) - x_offset
-        center_z = origin_z + (row * spacing) - z_offset
         district_notes = sorted(grouped[district_name], key=lambda note: note.path.as_posix())
-        districts.append(
+        drafts.append(
             _build_vault_district(
                 district_name,
                 district_notes,
-                center_x=center_x,
-                center_z=center_z,
+                center_x=0,
+                center_z=0,
                 origin_y=origin_y,
                 palette=PALETTE_ORDER[index % len(PALETTE_ORDER)],
+            )
+        )
+
+    spacing_x = max(district.width for district in drafts) + VAULT_DISTRICT_GAP
+    spacing_z = max(district.depth for district in drafts) + VAULT_DISTRICT_GAP
+    columns = math.ceil(math.sqrt(len(district_names)))
+    rows = math.ceil(len(district_names) / columns)
+    x_offset = (columns - 1) * spacing_x // 2
+    z_offset = (rows - 1) * spacing_z // 2
+
+    districts: list[DistrictPlan] = []
+    for index, draft in enumerate(drafts):
+        row = index // columns
+        column = index % columns
+        center_x = origin_x + (column * spacing_x) - x_offset
+        center_z = origin_z + (row * spacing_z) - z_offset
+        districts.append(
+            _translate_district(
+                draft,
+                center_x=center_x,
+                center_z=center_z,
             )
         )
 
@@ -146,27 +162,55 @@ def _build_diary_world_plan(
             )
         )
 
-    max_span = max(max(district.width, district.depth) for district in drafts)
-    if len(drafts) == 1:
-        radius = 0
-    else:
-        radius = max(
-            110,
-            math.ceil((max_span + 28) / (2 * math.sin(math.pi / len(drafts)))),
-        )
+    rows = [drafts[index : index + 2] for index in range(0, len(drafts), 2)]
+    row_depths = [max(district.depth for district in row) for row in rows]
+    split_index = len(rows) // 2
+
+    row_centers: list[int] = [origin_z] * len(rows)
+    cursor = origin_z - DIARY_HUB_CLEARANCE
+    for row_index in range(split_index - 1, -1, -1):
+        depth = row_depths[row_index]
+        cursor -= depth // 2
+        row_centers[row_index] = cursor
+        cursor -= math.ceil(depth / 2) + DIARY_ROW_GAP
+
+    cursor = origin_z + DIARY_HUB_CLEARANCE
+    for row_index in range(split_index, len(rows)):
+        depth = row_depths[row_index]
+        cursor += depth // 2
+        row_centers[row_index] = cursor
+        cursor += math.ceil(depth / 2) + DIARY_ROW_GAP
 
     districts: list[DistrictPlan] = []
-    for index, draft in enumerate(drafts):
-        angle = (-math.pi / 2) + (2 * math.pi * index / len(drafts))
-        center_x = origin_x + round(math.cos(angle) * radius)
-        center_z = origin_z + round(math.sin(angle) * radius)
-        entrance_side = _entrance_side_facing_hub(center_x, center_z, origin_x, origin_z)
+    for row_index, row in enumerate(rows):
+        center_z = row_centers[row_index]
+        if len(row) == 1:
+            entrance_side = "south" if center_z < origin_z else "north"
+            districts.append(
+                _translate_district(
+                    row[0],
+                    center_x=origin_x,
+                    center_z=center_z,
+                    entrance_side=entrance_side,
+                )
+            )
+            continue
+
+        left, right = row
         districts.append(
             _translate_district(
-                draft,
-                center_x=center_x,
+                left,
+                center_x=origin_x - (DIARY_HUB_CLEARANCE + left.width // 2),
                 center_z=center_z,
-                entrance_side=entrance_side,
+                entrance_side="east",
+            )
+        )
+        districts.append(
+            _translate_district(
+                right,
+                center_x=origin_x + (DIARY_HUB_CLEARANCE + right.width // 2),
+                center_z=center_z,
+                entrance_side="west",
             )
         )
 
@@ -241,8 +285,8 @@ def _build_diary_district(
     month_numbers = month_numbers or [1]
     max_notes_per_month = max(len(months.get(month, [])) for month in month_numbers)
 
-    width = max(23, 12 + max_notes_per_month * 5)
-    depth = max(23, 10 + len(month_numbers) * 5)
+    width = max(21, 11 + max_notes_per_month * DIARY_NOTE_STEP)
+    depth = max(21, 9 + len(month_numbers) * DIARY_NOTE_STEP)
     entrance_x = center_x
     entrance_z = center_z - depth // 2
 
@@ -253,7 +297,7 @@ def _build_diary_district(
     placements: list[NotePlacement] = []
     markers: list[DistrictMarker] = []
     for lane_index, month in enumerate(month_numbers):
-        lane_z = start_z + lane_index * 5
+        lane_z = start_z + lane_index * DIARY_NOTE_STEP
         month_notes = sorted(months.get(month, []), key=_diary_note_key)
         markers.append(
             DistrictMarker(
@@ -264,7 +308,7 @@ def _build_diary_district(
             )
         )
         for column, note in enumerate(month_notes):
-            x = start_x + column * 5
+            x = start_x + column * DIARY_NOTE_STEP
             placements.append(NotePlacement(note=note, x=x, y=origin_y + 1, z=lane_z))
 
     return DistrictPlan(

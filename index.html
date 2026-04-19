@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mine Palace</title>
+    <meta
+      name="description"
+      content="Turn your markdown vault into a walkable Minecraft memory palace."
+    />
+    <script async src="https://plausible.vipul.xyz/js/pa-bpJwYbROlJXiH_4hm2qS0.js"></script>
+    <script>
+      window.plausible = window.plausible || function () {
+        (plausible.q = plausible.q || []).push(arguments);
+      };
+      plausible.init = plausible.init || function (options) {
+        plausible.o = options || {};
+      };
+      plausible.init();
+    </script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="eyebrow">mine palace</div>
+        <a class="small-link" href="#quickstart">quickstart</a>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="kicker">Minecraft x markdown vaults</p>
+            <h1>Make your notes into a world you can walk through.</h1>
+            <p class="lede">
+              Mine Palace turns an Obsidian-style vault into a Minecraft memory
+              palace. Top-level folders become districts. Notes become alcoves,
+              lecterns, shelves, and signs.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#quickstart">Build your world</a>
+              <a class="button" href="#how">See the flow</a>
+              <a class="button" href="https://github.com/vipul-sharma20/mine-palace">GitHub</a>
+            </div>
+          </div>
+
+          <aside class="hero-panel">
+            <p class="panel-label">What comes out</p>
+            <ul class="panel-list">
+              <li>visual preview</li>
+              <li><code>mcfunction</code> files</li>
+              <li>plain command lists</li>
+              <li>optional RCON deployment</li>
+            </ul>
+            <p class="panel-note">
+              Work in progress. Minimal now. Later this can grow into a hosted
+              flow where people upload vaults and get suggested next steps.
+            </p>
+          </aside>
+        </section>
+
+        <section class="section showcase" aria-labelledby="world-view-title">
+          <div class="section-heading">
+            <p class="section-label">World view</p>
+            <h2 id="world-view-title">See the note library as an actual place.</h2>
+            <p class="showcase-copy">
+              The full world view shows the room-based library as a single
+              connected space. Below that, the split views show a second library
+              angle, a bookshelf detail, and a single note view.
+            </p>
+          </div>
+
+          <figure class="showcase-hero">
+            <img
+              src="assets/library-view-hero.jpg"
+              alt="Wide overview of the Mine Palace world with connected rooms around a central hub"
+              loading="eager"
+            />
+            <figcaption>Full world view</figcaption>
+          </figure>
+
+          <div class="showcase-grid">
+            <figure class="showcase-card">
+              <img
+                src="assets/library-complete.jpg"
+                alt="Aerial view of Mine Palace library rooms connected around a central hub in Minecraft"
+                loading="eager"
+              />
+              <figcaption>Complete library view</figcaption>
+            </figure>
+
+            <figure class="showcase-card">
+              <img
+                src="assets/bookshelf-view.jpg"
+                alt="Bookshelf detail inside a Mine Palace district room"
+                loading="lazy"
+              />
+              <figcaption>Bookshelf detail</figcaption>
+            </figure>
+
+            <figure class="showcase-card">
+              <img
+                src="assets/note-view.jpg"
+                alt="Single note view inside Mine Palace"
+                loading="lazy"
+              />
+              <figcaption>Note detail</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="card-grid" aria-label="Project summary">
+          <article class="card">
+            <p class="card-label">Input</p>
+            <h2>Markdown vault</h2>
+            <p>
+              Bring an Obsidian-style folder of notes. The current planner lays
+              out one district per top-level folder.
+            </p>
+          </article>
+          <article class="card">
+            <p class="card-label">Shape</p>
+            <h2>Readable world</h2>
+            <p>
+              You get a central hub, district paths, note alcoves, and objects
+              in-world so the structure feels navigable instead of random.
+            </p>
+          </article>
+          <article class="card">
+            <p class="card-label">Deploy</p>
+            <h2>Minecraft server</h2>
+            <p>
+              Inspect the preview first, then replay generated commands over
+              RCON or use the function files however you like.
+            </p>
+          </article>
+        </section>
+
+        <section id="how" class="section">
+          <div class="section-heading">
+            <p class="section-label">How it works</p>
+            <h2>Three simple steps.</h2>
+          </div>
+          <div class="step-list">
+            <article class="step">
+              <p class="step-number">01</p>
+              <h3>Pick a vault</h3>
+              <p>
+                Use the bundled sample vault for a demo, or point the planner at
+                your own notes directory.
+              </p>
+            </article>
+            <article class="step">
+              <p class="step-number">02</p>
+              <h3>Generate artifacts</h3>
+              <p>
+                The CLI writes a manifest, build commands, optional book
+                commands, and a visual HTML preview.
+              </p>
+            </article>
+            <article class="step">
+              <p class="step-number">03</p>
+              <h3>Inspect, then deploy</h3>
+              <p>
+                Open the preview, confirm the layout, then apply the generated
+                commands to a running Minecraft server.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="quickstart" class="section quickstart">
+          <div class="section-heading">
+            <p class="section-label">Quickstart</p>
+            <h2>Commands people can actually follow.</h2>
+          </div>
+
+          <div class="command-blocks">
+            <article class="command-card">
+              <h3>1. Try the demo world</h3>
+              <pre><code>PYTHONPATH=src python3 -m mine_palace.cli demo --output build/demo</code></pre>
+              <p>
+                This creates a sample vault plus the world plan, commands, and
+                preview in <code>build/demo</code>.
+              </p>
+            </article>
+
+            <article class="command-card">
+              <h3>2. Build from your own vault</h3>
+              <pre><code>PYTHONPATH=src python3 -m mine_palace.cli plan \
+  --vault /path/to/your/vault \
+  --output build/my-world \
+  --limit 60</code></pre>
+              <p>
+                Use <code>--include</code> if you want to bias the build toward
+                specific folders instead of your whole vault.
+              </p>
+            </article>
+
+            <article class="command-card">
+              <h3>3. Open the preview</h3>
+              <pre><code>open build/my-world/preview/index.html</code></pre>
+              <p>
+                The preview is the sanity check. It shows the hub, districts,
+                note count, and overall world layout before you touch Minecraft.
+              </p>
+            </article>
+
+            <article class="command-card">
+              <h3>4. Deploy to a server over RCON</h3>
+              <pre><code>export MC_RCON_PASSWORD='...'
+PYTHONPATH=src python3 -m mine_palace.cli deploy-rcon \
+  --artifacts build/my-world \
+  --host 127.0.0.1 \
+  --port 25575</code></pre>
+              <p>
+                If written-book commands do not match your server version, use
+                <code>--skip-books</code> in the deployment flow.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section requirements">
+          <div class="section-heading">
+            <p class="section-label">What you need</p>
+            <h2>Enough to get from notes to blocks.</h2>
+          </div>
+
+          <div class="split-grid">
+            <article class="list-card">
+              <h3>Before you start</h3>
+              <ul>
+                <li>Python 3.11+</li>
+                <li>An Obsidian-style markdown vault</li>
+                <li>A Minecraft Java world or server</li>
+                <li>RCON enabled if you want one-command deployment</li>
+              </ul>
+            </article>
+
+            <article class="list-card">
+              <h3>What gets generated</h3>
+              <ul>
+                <li><code>manifest.json</code> for the planned layout</li>
+                <li><code>commands/build.txt</code> for replayable commands</li>
+                <li><code>mcfunction/build.mcfunction</code> for function-based use</li>
+                <li><code>preview/index.html</code> for visual inspection</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p>
+          Mine Palace is a work in progress. The current shape is: plan
+          locally, preview locally, deploy when the world looks right.
+        </p>
+        <p>
+          Follow the project on
+          <a href="https://github.com/vipul-sharma20/mine-palace">GitHub</a>.
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

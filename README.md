@@ -2,6 +2,18 @@
 
 Mine Palace turns an Obsidian-style markdown vault into a walkable Minecraft memory palace.
 
+<p align="center">
+  <img src="assets/library-view-hero.jpg" alt="Mine Palace full world view" width="100%" />
+</p>
+
+<p align="center">
+  <img src="assets/library-complete.jpg" alt="Complete Mine Palace library view" width="32%" />
+  <img src="assets/bookshelf-view.jpg" alt="Mine Palace bookshelf detail" width="32%" />
+  <img src="assets/note-view.jpg" alt="Mine Palace note detail" width="32%" />
+</p>
+
+_Full world view plus split detail views from the current Minecraft build._
+
 This implementation is intentionally hackathon-shaped:
 
 - no external Python dependencies

@@ -130,7 +130,7 @@ class WorldRenderer:
     def _clear_commands(self, plan: WorldPlan) -> list[str]:
         bounds = plan.bounds
         ground_y = plan.origin_y
-        commands = [f"# Clear Mine Palace bounds for {plan.name}"]
+        commands = [f"# Clear Mine Palace bounds for {plan.name}", _item_cleanup_command(bounds)]
         commands.extend(
             _fill_commands(
                 bounds["min_x"],
@@ -142,6 +142,7 @@ class WorldRenderer:
                 "air",
             )
         )
+        commands.append(_item_cleanup_command(bounds))
         commands.extend(
             _fill_commands(
                 bounds["min_x"],
@@ -164,6 +165,7 @@ class WorldRenderer:
             "gamerule advance_weather false",
             "gamerule command_block_output false",
             "gamerule send_command_feedback false",
+            _item_cleanup_command(plan.bounds),
         ]
         commands.extend(self._render_hub(plan))
 
@@ -193,6 +195,7 @@ class WorldRenderer:
                 y + 2,
                 plan.origin_z - 2,
                 ["Mine Palace", plan.name[:15], "Walk the", "vault"],
+                facing="south",
             ),
         ]
 
@@ -233,6 +236,7 @@ class WorldRenderer:
                         y + 2,
                         sign_z,
                         [district.name[:15], f"{len(district.notes)} notes", "District", ""],
+                        facing=_facing_towards(sign_x, sign_z, plan.origin_x, plan.origin_z),
                     ),
                 ]
             )
@@ -257,6 +261,7 @@ class WorldRenderer:
         x2 = district.center_x + half_width
         z1 = district.center_z - half_depth
         z2 = district.center_z + half_depth
+        open_notes = _is_diary_district(district)
 
         commands = [
             f"fill {x1} {y} {z1} {x2} {y} {z2} {palette['floor']}",
@@ -270,6 +275,10 @@ class WorldRenderer:
             f"fill {x1} {y + 4} {z2} {x2} {y + 4} {z2} {palette['trim']}",
             f"fill {x1} {y + 4} {z1} {x1} {y + 4} {z2} {palette['trim']}",
             f"fill {x2} {y + 4} {z1} {x2} {y + 4} {z2} {palette['trim']}",
+            f"fill {x1} {y + 1} {z1} {x2} {y + 3} {z1} {palette['wall']}",
+            f"fill {x1} {y + 1} {z2} {x2} {y + 3} {z2} {palette['wall']}",
+            f"fill {x1} {y + 1} {z1} {x1} {y + 3} {z2} {palette['wall']}",
+            f"fill {x2} {y + 1} {z1} {x2} {y + 3} {z2} {palette['wall']}",
         ]
 
         commands.extend(self._column_commands(x1, y + 1, y + 4, z1, palette["wall"]))
@@ -284,17 +293,26 @@ class WorldRenderer:
                 f"setblock {x2} {y + 5} {z2} lantern",
             ]
         )
-        commands.extend(self._district_entry_commands(district, y, x1, x2, z1, z2, palette))
+
+        commands.extend(self._district_entry_commands(district, y, x1, x2, z1, z2, palette, open_layout=False))
 
         for note in district.notes:
-            commands.extend(self._render_note_alcove(note, palette))
+            commands.extend(self._render_note_alcove(note, palette, open_layout=open_notes))
 
         for marker in district.markers:
-            commands.append(self._standing_sign(marker.x, marker.y, marker.z, marker.lines))
+            commands.append(
+                self._standing_sign(
+                    marker.x,
+                    marker.y,
+                    marker.z,
+                    marker.lines,
+                    facing=_facing_towards(marker.x, marker.z, district.center_x, district.center_z),
+                )
+            )
 
         return commands
 
-    def _render_note_alcove(self, placement: NotePlacement, palette: dict[str, str]) -> list[str]:
+    def _render_note_alcove(self, placement: NotePlacement, palette: dict[str, str], *, open_layout: bool = False) -> list[str]:
         x = placement.x
         y = placement.y
         z = placement.z
@@ -302,32 +320,51 @@ class WorldRenderer:
         excerpt = placement.note.excerpt[:15]
         meta = placement.note.path.as_posix()[:15]
 
-        commands = [
-            f"fill {x - 2} {y - 1} {z - 2} {x + 2} {y - 1} {z + 2} {palette['trim']}",
-            f"fill {x - 2} {y} {z - 2} {x + 2} {y + 3} {z - 2} {palette['wall']}",
-            f"fill {x - 2} {y} {z - 2} {x - 2} {y + 2} {z - 1} {palette['wall']}",
-            f"fill {x + 2} {y} {z - 2} {x + 2} {y + 2} {z - 1} {palette['wall']}",
-            f"fill {x - 2} {y + 3} {z - 2} {x + 2} {y + 3} {z - 2} {palette['trim']}",
-            f"setblock {x} {y} {z - 1} chiseled_bookshelf",
-            f"setblock {x - 1} {y} {z - 1} bookshelf",
-            f"setblock {x + 1} {y} {z - 1} bookshelf",
-            f"setblock {x} {y} {z} lectern[facing=south,has_book=false]",
-            f"setblock {x - 2} {y} {z + 1} lantern",
-            f"setblock {x + 2} {y} {z + 1} lantern",
-            self._standing_sign(
-                x - 1,
-                y,
-                z + 1,
-                [title[0], title[1], excerpt, ""],
-            ),
-            self._standing_sign(
-                x + 1,
-                y,
-                z + 1,
-                [meta, f"{len(placement.note.links)} links", f"{len(placement.note.tags)} tags", ""],
-            ),
-        ]
+        if open_layout:
+            commands = [
+                f"fill {x - 1} {y - 1} {z - 2} {x + 1} {y - 1} {z + 1} {palette['trim']}",
+                f"setblock {x} {y} {z - 1} chiseled_bookshelf",
+                f"setblock {x - 1} {y} {z - 1} bookshelf",
+                f"setblock {x + 1} {y} {z - 1} bookshelf",
+                f"setblock {x} {y} {z} lectern[facing=south,has_book=false]",
+                f"setblock {x} {y + 1} {z - 1} lantern",
+                self._standing_sign(
+                    x,
+                    y,
+                    z + 1,
+                    [title[0], title[1], excerpt, ""],
+                    facing="south",
+                ),
+            ]
+        else:
+            commands = [
+                f"fill {x - 2} {y - 1} {z - 2} {x + 2} {y - 1} {z + 2} {palette['trim']}",
+                f"fill {x - 2} {y} {z - 2} {x - 2} {y + 3} {z - 2} {palette['wall']}",
+                f"fill {x + 2} {y} {z - 2} {x + 2} {y + 3} {z - 2} {palette['wall']}",
+                f"fill {x - 2} {y + 3} {z - 2} {x + 2} {y + 3} {z - 2} {palette['trim']}",
+                f"setblock {x} {y} {z - 1} chiseled_bookshelf",
+                f"setblock {x - 1} {y} {z - 1} bookshelf",
+                f"setblock {x + 1} {y} {z - 1} bookshelf",
+                f"setblock {x} {y} {z} lectern[facing=south,has_book=false]",
+                f"setblock {x - 2} {y} {z + 1} lantern",
+                f"setblock {x + 2} {y} {z + 1} lantern",
+                self._standing_sign(
+                    x - 1,
+                    y,
+                    z + 1,
+                    [title[0], title[1], excerpt, ""],
+                    facing="south",
+                ),
+                self._standing_sign(
+                    x + 1,
+                    y,
+                    z + 1,
+                    [meta, f"{len(placement.note.links)} links", f"{len(placement.note.tags)} tags", ""],
+                    facing="south",
+                ),
+            ]
 
+        commands.extend(_shelf_note_book_commands(placement))
         return commands
 
     def _column_commands(self, x: int, y1: int, y2: int, z: int, block: str) -> list[str]:
@@ -359,35 +396,81 @@ class WorldRenderer:
         z1: int,
         z2: int,
         palette: dict[str, str],
+        *,
+        open_layout: bool = False,
     ) -> list[str]:
         commands: list[str] = []
         if district.entrance_side == "north":
             commands.extend(self._path_segment(district.entrance_x, z1, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
-            commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z1, palette["wall"]))
-            commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z1, palette["wall"]))
-            commands.extend([f"setblock {district.entrance_x - 2} {y + 5} {z1} lantern", f"setblock {district.entrance_x + 2} {y + 5} {z1} lantern"])
-            commands.append(self._standing_sign(district.entrance_x, y + 1, z1 - 1, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            commands.append(f"fill {district.entrance_x - 1} {y + 1} {z1} {district.entrance_x + 1} {y + 3} {z1} air")
+            if not open_layout:
+                commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z1, palette["wall"]))
+                commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z1, palette["wall"]))
+                commands.extend([f"setblock {district.entrance_x - 2} {y + 5} {z1} lantern", f"setblock {district.entrance_x + 2} {y + 5} {z1} lantern"])
+            commands.append(f"setblock {district.entrance_x} {y} {z1 - 1} {palette['trim']}")
+            commands.append(
+                self._standing_sign(
+                    district.entrance_x,
+                    y + 1,
+                    z1 - 1,
+                    [district.name[:15], f"{len(district.notes)} notes", "Enter", ""],
+                    facing="north",
+                )
+            )
             return commands
         if district.entrance_side == "south":
             commands.extend(self._path_segment(district.entrance_x, z2, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
-            commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z2, palette["wall"]))
-            commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z2, palette["wall"]))
-            commands.extend([f"setblock {district.entrance_x - 2} {y + 5} {z2} lantern", f"setblock {district.entrance_x + 2} {y + 5} {z2} lantern"])
-            commands.append(self._standing_sign(district.entrance_x, y + 1, z2 + 1, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            commands.append(f"fill {district.entrance_x - 1} {y + 1} {z2} {district.entrance_x + 1} {y + 3} {z2} air")
+            if not open_layout:
+                commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z2, palette["wall"]))
+                commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z2, palette["wall"]))
+                commands.extend([f"setblock {district.entrance_x - 2} {y + 5} {z2} lantern", f"setblock {district.entrance_x + 2} {y + 5} {z2} lantern"])
+            commands.append(f"setblock {district.entrance_x} {y} {z2 + 1} {palette['trim']}")
+            commands.append(
+                self._standing_sign(
+                    district.entrance_x,
+                    y + 1,
+                    z2 + 1,
+                    [district.name[:15], f"{len(district.notes)} notes", "Enter", ""],
+                    facing="south",
+                )
+            )
             return commands
         if district.entrance_side == "west":
             commands.extend(self._path_segment(x1, district.entrance_z, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
-            commands.extend(self._column_commands(x1, y + 1, y + 4, district.entrance_z - 2, palette["wall"]))
-            commands.extend(self._column_commands(x1, y + 1, y + 4, district.entrance_z + 2, palette["wall"]))
-            commands.extend([f"setblock {x1} {y + 5} {district.entrance_z - 2} lantern", f"setblock {x1} {y + 5} {district.entrance_z + 2} lantern"])
-            commands.append(self._standing_sign(x1 - 1, y + 1, district.entrance_z, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            commands.append(f"fill {x1} {y + 1} {district.entrance_z - 1} {x1} {y + 3} {district.entrance_z + 1} air")
+            if not open_layout:
+                commands.extend(self._column_commands(x1, y + 1, y + 4, district.entrance_z - 2, palette["wall"]))
+                commands.extend(self._column_commands(x1, y + 1, y + 4, district.entrance_z + 2, palette["wall"]))
+                commands.extend([f"setblock {x1} {y + 5} {district.entrance_z - 2} lantern", f"setblock {x1} {y + 5} {district.entrance_z + 2} lantern"])
+            commands.append(f"setblock {x1 - 1} {y} {district.entrance_z} {palette['trim']}")
+            commands.append(
+                self._standing_sign(
+                    x1 - 1,
+                    y + 1,
+                    district.entrance_z,
+                    [district.name[:15], f"{len(district.notes)} notes", "Enter", ""],
+                    facing="west",
+                )
+            )
             return commands
         if district.entrance_side == "east":
             commands.extend(self._path_segment(x2, district.entrance_z, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
-            commands.extend(self._column_commands(x2, y + 1, y + 4, district.entrance_z - 2, palette["wall"]))
-            commands.extend(self._column_commands(x2, y + 1, y + 4, district.entrance_z + 2, palette["wall"]))
-            commands.extend([f"setblock {x2} {y + 5} {district.entrance_z - 2} lantern", f"setblock {x2} {y + 5} {district.entrance_z + 2} lantern"])
-            commands.append(self._standing_sign(x2 + 1, y + 1, district.entrance_z, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            commands.append(f"fill {x2} {y + 1} {district.entrance_z - 1} {x2} {y + 3} {district.entrance_z + 1} air")
+            if not open_layout:
+                commands.extend(self._column_commands(x2, y + 1, y + 4, district.entrance_z - 2, palette["wall"]))
+                commands.extend(self._column_commands(x2, y + 1, y + 4, district.entrance_z + 2, palette["wall"]))
+                commands.extend([f"setblock {x2} {y + 5} {district.entrance_z - 2} lantern", f"setblock {x2} {y + 5} {district.entrance_z + 2} lantern"])
+            commands.append(f"setblock {x2 + 1} {y} {district.entrance_z} {palette['trim']}")
+            commands.append(
+                self._standing_sign(
+                    x2 + 1,
+                    y + 1,
+                    district.entrance_z,
+                    [district.name[:15], f"{len(district.notes)} notes", "Enter", ""],
+                    facing="east",
+                )
+            )
             return commands
         raise ValueError(f"Unsupported entrance side: {district.entrance_side}")
 
@@ -420,8 +503,8 @@ class WorldRenderer:
             "}}},Page:0}"
         )
 
-    def _standing_sign(self, x: int, y: int, z: int, lines: list[str]) -> str:
-        block = "oak_sign[rotation=8]"
+    def _standing_sign(self, x: int, y: int, z: int, lines: list[str], *, facing: str = "north") -> str:
+        block = f"oak_sign[rotation={_sign_rotation(facing)}]"
         payload = _sign_nbt(lines)
         return f"setblock {x} {y} {z} {block}{payload}"
 
@@ -660,7 +743,61 @@ class WorldRenderer:
 def _sign_nbt(lines: list[str]) -> str:
     padded = (lines + ["", "", "", ""])[:4]
     messages = ",".join(_snbt_single_quote(line[:15]) for line in padded)
-    return "{front_text:{messages:[" + messages + "]},is_waxed:1b}"
+    return (
+        "{front_text:{messages:["
+        + messages
+        + "]},back_text:{messages:["
+        + messages
+        + "]},is_waxed:1b}"
+    )
+
+
+def _sign_rotation(facing: str) -> int:
+    rotations = {
+        "south": 0,
+        "west": 4,
+        "north": 8,
+        "east": 12,
+    }
+    try:
+        return rotations[facing]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported sign facing: {facing}") from exc
+
+
+def _is_diary_district(district: DistrictPlan) -> bool:
+    return bool(district.markers)
+
+
+def _facing_towards(x: int, z: int, target_x: int, target_z: int) -> str:
+    delta_x = target_x - x
+    delta_z = target_z - z
+    if abs(delta_x) > abs(delta_z):
+        return "east" if delta_x > 0 else "west"
+    return "south" if delta_z > 0 else "north"
+
+
+def _item_cleanup_command(bounds: dict[str, int]) -> str:
+    dx = bounds["max_x"] - bounds["min_x"]
+    dy = (bounds["max_y"] - bounds["min_y"]) + 8
+    dz = bounds["max_z"] - bounds["min_z"]
+    return (
+        "kill @e[type=item,"
+        f"x={bounds['min_x']},y={bounds['min_y'] - 2},z={bounds['min_z']},"
+        f"dx={dx},dy={dy},dz={dz}]"
+    )
+
+
+def _shelf_note_book_commands(placement: NotePlacement) -> list[str]:
+    pages = _book_pages(placement.note.content)
+    if len(pages) == 1 and pages[0] == "Empty note":
+        return []
+
+    x = placement.x
+    y = placement.y
+    z = placement.z - 1
+    note_book = _written_book_item(placement.note.title, pages)
+    return [f"item replace block {x} {y} {z} container.0 with {note_book} 1"]
 
 
 def _snbt_single_quote(value: str) -> str:
