@@ -132,36 +132,22 @@ def _build_diary_world_plan(
     if not years:
         raise ValueError("No dated notes found to build a diary world plan")
 
-    drafts: list[DistrictPlan] = []
+    districts: list[DistrictPlan] = []
+    current_front_z = origin_z + 28
     for index, year in enumerate(years):
         year_notes = sorted(grouped[year], key=_diary_note_key)
-        drafts.append(
-            _build_diary_district(
-                str(year),
-                year_notes,
-                center_x=0,
-                center_z=0,
-                origin_y=origin_y,
-                palette=PALETTE_ORDER[index % len(PALETTE_ORDER)],
-            )
+        draft = _build_diary_district(
+            str(year),
+            year_notes,
+            center_x=origin_x,
+            center_z=0,
+            origin_y=origin_y,
+            palette=PALETTE_ORDER[index % len(PALETTE_ORDER)],
         )
-
-    max_width = max(district.width for district in drafts)
-    max_depth = max(district.depth for district in drafts)
-    spacing_x = max_width + 18
-    spacing_z = max_depth + 18
-    columns = math.ceil(math.sqrt(len(drafts)))
-    rows = math.ceil(len(drafts) / columns)
-    x_offset = (columns - 1) * spacing_x // 2
-    z_offset = (rows - 1) * spacing_z // 2
-
-    districts: list[DistrictPlan] = []
-    for index, draft in enumerate(drafts):
-        row = index // columns
-        column = index % columns
-        center_x = origin_x + (column * spacing_x) - x_offset
-        center_z = origin_z + (row * spacing_z) - z_offset
-        districts.append(_translate_district(draft, center_x=center_x, center_z=center_z))
+        half_depth = draft.depth // 2
+        center_z = current_front_z + half_depth
+        districts.append(_translate_district(draft, center_x=origin_x, center_z=center_z))
+        current_front_z += draft.depth + 12
 
     return WorldPlan(
         name=name,
