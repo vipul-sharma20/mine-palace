@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+
+@dataclass(slots=True)
+class VaultNote:
+    slug: str
+    title: str
+    path: Path
+    district: str
+    content: str
+    excerpt: str
+    links: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+
+    def to_manifest(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["path"] = self.path.as_posix()
+        return payload
+
+
+@dataclass(slots=True)
+class NotePlacement:
+    note: VaultNote
+    x: int
+    y: int
+    z: int
+
+    def to_manifest(self) -> dict[str, object]:
+        return {
+            "note": self.note.to_manifest(),
+            "x": self.x,
+            "y": self.y,
+            "z": self.z,
+        }
+
+
+@dataclass(slots=True)
+class DistrictPlan:
+    name: str
+    center_x: int
+    center_z: int
+    width: int
+    depth: int
+    entrance_x: int
+    entrance_z: int
+    palette: str
+    notes: list[NotePlacement] = field(default_factory=list)
+
+    def to_manifest(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "center_x": self.center_x,
+            "center_z": self.center_z,
+            "width": self.width,
+            "depth": self.depth,
+            "entrance_x": self.entrance_x,
+            "entrance_z": self.entrance_z,
+            "palette": self.palette,
+            "notes": [note.to_manifest() for note in self.notes],
+        }
+
+
+@dataclass(slots=True)
+class WorldPlan:
+    name: str
+    source_vault: Path
+    origin_x: int
+    origin_y: int
+    origin_z: int
+    hub_radius: int
+    districts: list[DistrictPlan]
+
+    @property
+    def note_count(self) -> int:
+        return sum(len(district.notes) for district in self.districts)
+
+    def to_manifest(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "source_vault": self.source_vault.as_posix(),
+            "origin_x": self.origin_x,
+            "origin_y": self.origin_y,
+            "origin_z": self.origin_z,
+            "hub_radius": self.hub_radius,
+            "note_count": self.note_count,
+            "districts": [district.to_manifest() for district in self.districts],
+        }
