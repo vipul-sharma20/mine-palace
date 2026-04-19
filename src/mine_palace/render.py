@@ -128,6 +128,7 @@ class WorldRenderer:
 
     def _clear_commands(self, plan: WorldPlan) -> list[str]:
         bounds = plan.bounds
+        ground_y = plan.origin_y
         commands = [f"# Clear Mine Palace bounds for {plan.name}"]
         commands.extend(
             _fill_commands(
@@ -143,10 +144,10 @@ class WorldRenderer:
         commands.extend(
             _fill_commands(
                 bounds["min_x"],
-                bounds["min_y"],
+                ground_y,
                 bounds["min_z"],
                 bounds["max_x"],
-                bounds["min_y"],
+                ground_y,
                 bounds["max_z"],
                 "grass_block",
             )
@@ -174,13 +175,17 @@ class WorldRenderer:
     def _render_hub(self, plan: WorldPlan) -> list[str]:
         y = plan.origin_y
         r = plan.hub_radius
+        outer = r + 2
+        inner = r - 2
         commands = [
-            f"fill {plan.origin_x - r} {y} {plan.origin_z - r} {plan.origin_x + r} {y} {plan.origin_z + r} polished_andesite",
-            f"fill {plan.origin_x - r} {y + 1} {plan.origin_z - r} {plan.origin_x + r} {y + 3} {plan.origin_z + r} air",
-            f"fill {plan.origin_x - r} {y + 1} {plan.origin_z - r} {plan.origin_x + r} {y + 1} {plan.origin_z - r} smooth_stone",
-            f"fill {plan.origin_x - r} {y + 1} {plan.origin_z + r} {plan.origin_x + r} {y + 1} {plan.origin_z + r} smooth_stone",
-            f"fill {plan.origin_x - r} {y + 1} {plan.origin_z - r} {plan.origin_x - r} {y + 1} {plan.origin_z + r} smooth_stone",
-            f"fill {plan.origin_x + r} {y + 1} {plan.origin_z - r} {plan.origin_x + r} {y + 1} {plan.origin_z + r} smooth_stone",
+            f"fill {plan.origin_x - outer} {y} {plan.origin_z - outer} {plan.origin_x + outer} {y} {plan.origin_z + outer} stone_bricks",
+            f"fill {plan.origin_x - inner} {y} {plan.origin_z - inner} {plan.origin_x + inner} {y} {plan.origin_z + inner} polished_andesite",
+            f"fill {plan.origin_x - outer} {y + 1} {plan.origin_z - outer} {plan.origin_x + outer} {y + 5} {plan.origin_z + outer} air",
+            f"fill {plan.origin_x - outer} {y + 1} {plan.origin_z - outer} {plan.origin_x + outer} {y + 1} {plan.origin_z - outer} smooth_stone",
+            f"fill {plan.origin_x - outer} {y + 1} {plan.origin_z + outer} {plan.origin_x + outer} {y + 1} {plan.origin_z + outer} smooth_stone",
+            f"fill {plan.origin_x - outer} {y + 1} {plan.origin_z - outer} {plan.origin_x - outer} {y + 1} {plan.origin_z + outer} smooth_stone",
+            f"fill {plan.origin_x + outer} {y + 1} {plan.origin_z - outer} {plan.origin_x + outer} {y + 1} {plan.origin_z + outer} smooth_stone",
+            f"fill {plan.origin_x - 1} {y} {plan.origin_z - 1} {plan.origin_x + 1} {y} {plan.origin_z + 1} chiseled_stone_bricks",
             f"setblock {plan.origin_x} {y + 1} {plan.origin_z} lodestone",
             self._standing_sign(
                 plan.origin_x,
@@ -190,16 +195,44 @@ class WorldRenderer:
             ),
         ]
 
+        commands.extend(
+            self._column_commands(plan.origin_x - 5, y + 1, y + 4, plan.origin_z - 5, "chiseled_stone_bricks")
+        )
+        commands.extend(
+            self._column_commands(plan.origin_x + 5, y + 1, y + 4, plan.origin_z - 5, "chiseled_stone_bricks")
+        )
+        commands.extend(
+            self._column_commands(plan.origin_x - 5, y + 1, y + 4, plan.origin_z + 5, "chiseled_stone_bricks")
+        )
+        commands.extend(
+            self._column_commands(plan.origin_x + 5, y + 1, y + 4, plan.origin_z + 5, "chiseled_stone_bricks")
+        )
+        commands.extend(
+            [
+                f"fill {plan.origin_x - 5} {y + 4} {plan.origin_z - 5} {plan.origin_x + 5} {y + 4} {plan.origin_z - 5} smooth_stone",
+                f"fill {plan.origin_x - 5} {y + 4} {plan.origin_z + 5} {plan.origin_x + 5} {y + 4} {plan.origin_z + 5} smooth_stone",
+                f"fill {plan.origin_x - 5} {y + 4} {plan.origin_z - 5} {plan.origin_x - 5} {y + 4} {plan.origin_z + 5} smooth_stone",
+                f"fill {plan.origin_x + 5} {y + 4} {plan.origin_z - 5} {plan.origin_x + 5} {y + 4} {plan.origin_z + 5} smooth_stone",
+                f"setblock {plan.origin_x - 5} {y + 5} {plan.origin_z - 5} lantern",
+                f"setblock {plan.origin_x + 5} {y + 5} {plan.origin_z - 5} lantern",
+                f"setblock {plan.origin_x - 5} {y + 5} {plan.origin_z + 5} lantern",
+                f"setblock {plan.origin_x + 5} {y + 5} {plan.origin_z + 5} lantern",
+            ]
+        )
+
         for index, district in enumerate(plan.districts[:8]):
             sign_x = plan.origin_x - 7 + (index % 4) * 5
             sign_z = plan.origin_z + 5 if index < 4 else plan.origin_z + 7
-            commands.append(
-                self._standing_sign(
-                    sign_x,
-                    y + 1,
-                    sign_z,
-                    [district.name[:15], f"{len(district.notes)} notes", "District", ""],
-                )
+            commands.extend(
+                [
+                    f"setblock {sign_x} {y + 1} {sign_z} smooth_stone",
+                    self._standing_sign(
+                        sign_x,
+                        y + 2,
+                        sign_z,
+                        [district.name[:15], f"{len(district.notes)} notes", "District", ""],
+                    ),
+                ]
             )
 
         return commands
@@ -214,8 +247,12 @@ class WorldRenderer:
         z2 = district.entrance_z - 1
 
         commands = [
-            f"fill {min(x1, x2)} {y} {z1} {max(x1, x2)} {y} {z1} {path_block}",
-            f"fill {x2} {y} {min(z1, z2)} {x2} {y} {max(z1, z2)} {path_block}",
+            f"fill {min(x1, x2)} {y} {z1 - 1} {max(x1, x2)} {y} {z1 + 1} {path_block}",
+            f"fill {min(x1, x2)} {y} {z1 - 2} {max(x1, x2)} {y} {z1 - 2} {palette['trim']}",
+            f"fill {min(x1, x2)} {y} {z1 + 2} {max(x1, x2)} {y} {z1 + 2} {palette['trim']}",
+            f"fill {x2 - 1} {y} {min(z1, z2)} {x2 + 1} {y} {max(z1, z2)} {path_block}",
+            f"fill {x2 - 2} {y} {min(z1, z2)} {x2 - 2} {y} {max(z1, z2)} {palette['trim']}",
+            f"fill {x2 + 2} {y} {min(z1, z2)} {x2 + 2} {y} {max(z1, z2)} {palette['trim']}",
         ]
         return commands
 
@@ -231,12 +268,18 @@ class WorldRenderer:
 
         commands = [
             f"fill {x1} {y} {z1} {x2} {y} {z2} {palette['floor']}",
-            f"fill {x1} {y + 1} {z1} {x2} {y + 3} {z2} air",
-            f"fill {x1} {y + 1} {z1} {x2} {y + 2} {z1} {palette['wall']}",
-            f"fill {x1} {y + 1} {z2} {x2} {y + 2} {z2} {palette['wall']}",
-            f"fill {x1} {y + 1} {z1} {x1} {y + 2} {z2} {palette['wall']}",
-            f"fill {x2} {y + 1} {z1} {x2} {y + 2} {z2} {palette['wall']}",
-            f"fill {district.entrance_x - 1} {y + 1} {z1} {district.entrance_x + 1} {y + 2} {z1} air",
+            f"fill {x1} {y - 1} {z1} {x2} {y - 1} {z2} {palette['trim']}",
+            f"fill {x1} {y + 1} {z1} {x2} {y + 5} {z2} air",
+            f"fill {x1} {y} {z1} {x2} {y} {z1} {palette['trim']}",
+            f"fill {x1} {y} {z2} {x2} {y} {z2} {palette['trim']}",
+            f"fill {x1} {y} {z1} {x1} {y} {z2} {palette['trim']}",
+            f"fill {x2} {y} {z1} {x2} {y} {z2} {palette['trim']}",
+            f"fill {district.entrance_x - 1} {y} {z1} {district.entrance_x + 1} {y} {z2 - 2} {palette['path']}",
+            f"fill {x1} {y + 4} {z1} {district.entrance_x - 2} {y + 4} {z1} {palette['trim']}",
+            f"fill {district.entrance_x + 2} {y + 4} {z1} {x2} {y + 4} {z1} {palette['trim']}",
+            f"fill {x1} {y + 4} {z2} {x2} {y + 4} {z2} {palette['trim']}",
+            f"fill {x1} {y + 4} {z1} {x1} {y + 4} {z2} {palette['trim']}",
+            f"fill {x2} {y + 4} {z1} {x2} {y + 4} {z2} {palette['trim']}",
             self._standing_sign(
                 district.entrance_x,
                 y + 1,
@@ -244,6 +287,19 @@ class WorldRenderer:
                 [district.name[:15], f"{len(district.notes)} notes", "Enter", ""],
             ),
         ]
+
+        commands.extend(self._column_commands(x1, y + 1, y + 4, z1, palette["wall"]))
+        commands.extend(self._column_commands(x2, y + 1, y + 4, z1, palette["wall"]))
+        commands.extend(self._column_commands(x1, y + 1, y + 4, z2, palette["wall"]))
+        commands.extend(self._column_commands(x2, y + 1, y + 4, z2, palette["wall"]))
+        commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z1, palette["wall"]))
+        commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z1, palette["wall"]))
+        commands.extend(
+            [
+                f"setblock {district.entrance_x - 2} {y + 5} {z1} lantern",
+                f"setblock {district.entrance_x + 2} {y + 5} {z1} lantern",
+            ]
+        )
 
         for note in district.notes:
             commands.extend(self._render_note_alcove(note, palette))
@@ -262,12 +318,17 @@ class WorldRenderer:
         meta = placement.note.path.as_posix()[:15]
 
         commands = [
-            f"fill {x - 1} {y - 1} {z - 1} {x + 1} {y - 1} {z + 1} {palette['trim']}",
+            f"fill {x - 2} {y - 1} {z - 2} {x + 2} {y - 1} {z + 2} {palette['trim']}",
+            f"fill {x - 2} {y} {z - 2} {x + 2} {y + 3} {z - 2} {palette['wall']}",
+            f"fill {x - 2} {y} {z - 2} {x - 2} {y + 2} {z + 1} {palette['wall']}",
+            f"fill {x + 2} {y} {z - 2} {x + 2} {y + 2} {z + 1} {palette['wall']}",
+            f"fill {x - 2} {y + 3} {z - 2} {x + 2} {y + 3} {z - 2} {palette['trim']}",
             f"setblock {x} {y} {z - 1} chiseled_bookshelf",
             f"setblock {x - 1} {y} {z - 1} bookshelf",
             f"setblock {x + 1} {y} {z - 1} bookshelf",
             f"setblock {x} {y} {z} lectern[facing=south,has_book=false]",
-            f"setblock {x} {y} {z + 1} {palette['accent']}",
+            f"setblock {x - 2} {y} {z + 1} lantern",
+            f"setblock {x + 2} {y} {z + 1} lantern",
             self._standing_sign(
                 x - 1,
                 y,
@@ -283,6 +344,9 @@ class WorldRenderer:
         ]
 
         return commands
+
+    def _column_commands(self, x: int, y1: int, y2: int, z: int, block: str) -> list[str]:
+        return [f"fill {x} {y1} {z} {x} {y2} {z} {block}"]
 
     def _book_commands(self, plan: WorldPlan) -> list[str]:
         commands = [f"# Experimental written-book placement for {plan.name}"]
