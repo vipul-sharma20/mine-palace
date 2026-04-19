@@ -207,6 +207,27 @@ Best share lines:
 - I turned my Obsidian vault into a Minecraft world.
 - I built a walkable memory palace for my notes in Minecraft.
 
+## Self-Serve Later
+
+This is not the current priority.
+
+The current priority is a strong functional demo on your own server.
+
+After that works, the virality loop should become: other developers point Mine Palace at their own vault and deploy it to their own Minecraft server.
+
+That later phase should include:
+
+1. one-command flat-world bootstrap that creates a new safe world without touching an existing one
+2. one-command deploy path for common setups like Docker, Coolify, or hosted RCON servers
+3. a public sample engineer vault so people can test before using private notes
+4. a short server-owner guide for memory, ports, backups, and safe coordinates
+5. one share artifact per run: preview map, screenshot card, or flythrough-ready overview
+6. a lightweight landing page with one clear action: generate your world, try the sample, or join the waitlist
+
+The goal is not generic markdown import.
+
+The goal is: a developer sees the demo and thinks, I want this on my own server tonight.
+
 ## Success Criteria
 
 The project is in good shape for the buildathon if it hits these points:
