@@ -5,6 +5,8 @@ from pathlib import Path
 
 from .models import DistrictPlan, NotePlacement, WorldPlan
 
+MAX_FILL_VOLUME = 32_768
+
 PALETTES = {
     "oak": {
         "floor": "oak_planks",
@@ -126,17 +128,30 @@ class WorldRenderer:
 
     def _clear_commands(self, plan: WorldPlan) -> list[str]:
         bounds = plan.bounds
-        return [
-            f"# Clear Mine Palace bounds for {plan.name}",
-            (
-                f"fill {bounds['min_x']} {bounds['min_y']} {bounds['min_z']} "
-                f"{bounds['max_x']} {bounds['max_y']} {bounds['max_z']} air"
-            ),
-            (
-                f"fill {bounds['min_x']} {bounds['min_y']} {bounds['min_z']} "
-                f"{bounds['max_x']} {bounds['min_y']} {bounds['max_z']} grass_block"
-            ),
-        ]
+        commands = [f"# Clear Mine Palace bounds for {plan.name}"]
+        commands.extend(
+            _fill_commands(
+                bounds["min_x"],
+                bounds["min_y"],
+                bounds["min_z"],
+                bounds["max_x"],
+                bounds["max_y"],
+                bounds["max_z"],
+                "air",
+            )
+        )
+        commands.extend(
+            _fill_commands(
+                bounds["min_x"],
+                bounds["min_y"],
+                bounds["min_z"],
+                bounds["max_x"],
+                bounds["min_y"],
+                bounds["max_z"],
+                "grass_block",
+            )
+        )
+        return commands
 
     def _build_commands(self, plan: WorldPlan) -> list[str]:
         commands: list[str] = [
@@ -549,3 +564,43 @@ def _linebreak_title(title: str) -> tuple[str, str]:
     line_1 = " ".join(words[:midpoint])[:15]
     line_2 = " ".join(words[midpoint:])[:15]
     return (line_1, line_2)
+
+
+def _fill_commands(
+    x1: int,
+    y1: int,
+    z1: int,
+    x2: int,
+    y2: int,
+    z2: int,
+    block: str,
+) -> list[str]:
+    x1, x2 = sorted((x1, x2))
+    y1, y2 = sorted((y1, y2))
+    z1, z2 = sorted((z1, z2))
+
+    width = x2 - x1 + 1
+    height = y2 - y1 + 1
+    depth = z2 - z1 + 1
+    volume = width * height * depth
+    if volume <= MAX_FILL_VOLUME:
+        return [f"fill {x1} {y1} {z1} {x2} {y2} {z2} {block}"]
+
+    max_x_span = max(1, MAX_FILL_VOLUME // (height * depth))
+    if max_x_span < width:
+        commands = []
+        start_x = x1
+        while start_x <= x2:
+            end_x = min(start_x + max_x_span - 1, x2)
+            commands.extend(_fill_commands(start_x, y1, z1, end_x, y2, z2, block))
+            start_x = end_x + 1
+        return commands
+
+    max_z_span = max(1, MAX_FILL_VOLUME // height)
+    commands = []
+    start_z = z1
+    while start_z <= z2:
+        end_z = min(start_z + max_z_span - 1, z2)
+        commands.extend(_fill_commands(x1, y1, start_z, x2, y2, end_z, block))
+        start_z = end_z + 1
+    return commands
