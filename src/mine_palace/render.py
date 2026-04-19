@@ -290,15 +290,11 @@ class WorldRenderer:
         y = placement.y
         z = placement.z - 1
         note_book = _written_book_item(placement.note.title, _book_pages(placement.note.content))
-        commands = [
+        return [
+            f"setblock {x} {y} {z} air",
+            f"setblock {x} {y} {z} chiseled_bookshelf",
             f"item replace block {x} {y} {z} container.0 with {note_book} 1",
-            f"item replace block {x} {y} {z} container.1 with book 1",
-            f"item replace block {x} {y} {z} container.2 with book 1",
-            f"item replace block {x} {y} {z} container.3 with book 1",
-            f"item replace block {x} {y} {z} container.4 with book 1",
-            f"item replace block {x} {y} {z} container.5 with book 1",
         ]
-        return commands
 
     def _lectern_book_command(self, placement: NotePlacement) -> str:
         note = placement.note
