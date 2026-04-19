@@ -156,8 +156,12 @@ class WorldRenderer:
     def _build_commands(self, plan: WorldPlan) -> list[str]:
         commands: list[str] = [
             f"# Mine Palace build for {plan.name}",
-            "gamerule commandBlockOutput false",
-            "gamerule sendCommandFeedback false",
+            "time set day",
+            "weather clear",
+            "gamerule advance_time false",
+            "gamerule advance_weather false",
+            "gamerule command_block_output false",
+            "gamerule send_command_feedback false",
         ]
         commands.extend(self._render_hub(plan))
 
@@ -243,6 +247,9 @@ class WorldRenderer:
 
         for note in district.notes:
             commands.extend(self._render_note_alcove(note, palette))
+
+        for marker in district.markers:
+            commands.append(self._standing_sign(marker.x, marker.y, marker.z, marker.lines))
 
         return commands
 
@@ -558,8 +565,9 @@ def _book_pages(text: str) -> list[str]:
     compact = " ".join(text.split())
     if not compact:
         return ["Empty note"]
-    chunk_size = 220
-    return [compact[index : index + chunk_size] for index in range(0, min(len(compact), 1320), chunk_size)]
+    chunk_size = 160
+    max_chars = 480
+    return [compact[index : index + chunk_size] for index in range(0, min(len(compact), max_chars), chunk_size)]
 
 
 def _linebreak_title(title: str) -> tuple[str, str]:

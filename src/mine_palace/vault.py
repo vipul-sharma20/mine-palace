@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import re
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 from .models import VaultNote
@@ -11,6 +12,7 @@ HEADING_RE = re.compile(r"^\s*#\s+(.+?)\s*$", re.MULTILINE)
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 TAG_RE = re.compile(r"(?<!\w)#([A-Za-z][\w/-]+)")
 FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
+DATE_STEM_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 HIDDEN_PARTS = {".git", ".obsidian", ".github", "__pycache__", ".claude", ".vim"}
 
 
@@ -19,6 +21,7 @@ def parse_vault(
     *,
     limit: int | None = None,
     include_districts: list[str] | None = None,
+    mode: str = "vault",
 ) -> list[VaultNote]:
     notes: list[VaultNote] = []
 
@@ -27,11 +30,14 @@ def parse_vault(
         if _should_skip(path, vault_dir):
             continue
 
-        district = _district_name(path, vault_dir)
+        diary_date = _extract_diary_date(path)
+        district = _district_name(path, vault_dir, mode=mode, diary_date=diary_date)
+        if district is None:
+            continue
         if include_set and district.lower() not in include_set:
             continue
 
-        note = _parse_note(path, vault_dir, district)
+        note = _parse_note(path, vault_dir, district, diary_date=diary_date)
         if note is not None:
             notes.append(note)
 
@@ -48,14 +54,19 @@ def _should_skip(path: Path, root: Path) -> bool:
     return False
 
 
-def _district_name(path: Path, root: Path) -> str:
+def _district_name(path: Path, root: Path, *, mode: str, diary_date: date | None) -> str | None:
+    if mode == "diary":
+        if diary_date is None:
+            return None
+        return str(diary_date.year)
+
     rel = path.relative_to(root)
     if len(rel.parts) == 1:
         return "Vault"
     return rel.parts[0]
 
 
-def _parse_note(path: Path, root: Path, district: str) -> VaultNote | None:
+def _parse_note(path: Path, root: Path, district: str, *, diary_date: date | None) -> VaultNote | None:
     raw = path.read_text(encoding="utf-8", errors="ignore")
     text = FRONTMATTER_RE.sub("", raw).strip()
     if not text:
@@ -76,6 +87,9 @@ def _parse_note(path: Path, root: Path, district: str) -> VaultNote | None:
         excerpt=excerpt,
         links=links,
         tags=tags,
+        year=diary_date.year if diary_date else None,
+        month=diary_date.month if diary_date else None,
+        day=diary_date.day if diary_date else None,
     )
 
 
@@ -151,3 +165,14 @@ def _truncate_whitespace(text: str, limit: int) -> str:
     if len(compact) <= limit:
         return compact
     return compact[: limit - 1].rstrip() + "…"
+
+
+def _extract_diary_date(path: Path) -> date | None:
+    match = DATE_STEM_RE.match(path.stem)
+    if not match:
+        return None
+
+    try:
+        return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    except ValueError:
+        return None

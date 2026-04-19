@@ -66,6 +66,7 @@ def _add_plan_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--vault", type=Path, required=True, help="Vault root to parse.")
     parser.add_argument("--output", type=Path, required=True, help="Output directory for generated artifacts.")
     parser.add_argument("--name", default="Mine Palace", help="World name used in metadata.")
+    parser.add_argument("--layout", choices=["vault", "diary"], default="vault", help="World layout mode.")
     parser.add_argument("--limit", type=int, help="Maximum number of notes to include.")
     parser.add_argument("--include", nargs="*", help="Top-level folders to include.")
     parser.add_argument("--origin-x", type=int, default=0)
@@ -85,6 +86,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
         vault=args.vault,
         output=args.output,
         name=args.name,
+        layout=args.layout,
         limit=args.limit,
         include=args.include,
         origin_x=args.origin_x,
@@ -101,6 +103,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
         vault=sample_root,
         output=args.output,
         name="Mine Palace Demo",
+        layout="vault",
         limit=args.limit,
         include=None,
         origin_x=args.origin_x,
@@ -115,6 +118,7 @@ def _plan_from_vault(
     vault: Path,
     output: Path,
     name: str,
+    layout: str,
     limit: int | None,
     include: list[str] | None,
     origin_x: int,
@@ -122,7 +126,7 @@ def _plan_from_vault(
     origin_z: int,
     include_books: bool,
 ) -> int:
-    notes = parse_vault(vault, limit=limit, include_districts=include)
+    notes = parse_vault(vault, limit=limit, include_districts=include, mode=layout)
     if not notes:
         raise SystemExit("No notes found after parsing. Check your path or include filters.")
 
@@ -133,6 +137,7 @@ def _plan_from_vault(
         origin_x=origin_x,
         origin_y=origin_y,
         origin_z=origin_z,
+        layout=layout,
     )
     renderer = WorldRenderer()
     outputs = renderer.render(plan, output, include_books=include_books)

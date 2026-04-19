@@ -14,6 +14,9 @@ class VaultNote:
     excerpt: str
     links: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    year: int | None = None
+    month: int | None = None
+    day: int | None = None
 
     def to_manifest(self) -> dict[str, object]:
         payload = asdict(self)
@@ -38,6 +41,22 @@ class NotePlacement:
 
 
 @dataclass(slots=True)
+class DistrictMarker:
+    x: int
+    y: int
+    z: int
+    lines: list[str]
+
+    def to_manifest(self) -> dict[str, object]:
+        return {
+            "x": self.x,
+            "y": self.y,
+            "z": self.z,
+            "lines": self.lines,
+        }
+
+
+@dataclass(slots=True)
 class DistrictPlan:
     name: str
     center_x: int
@@ -48,6 +67,7 @@ class DistrictPlan:
     entrance_z: int
     palette: str
     notes: list[NotePlacement] = field(default_factory=list)
+    markers: list[DistrictMarker] = field(default_factory=list)
 
     def to_manifest(self) -> dict[str, object]:
         return {
@@ -60,6 +80,7 @@ class DistrictPlan:
             "entrance_z": self.entrance_z,
             "palette": self.palette,
             "notes": [note.to_manifest() for note in self.notes],
+            "markers": [marker.to_manifest() for marker in self.markers],
         }
 
 
