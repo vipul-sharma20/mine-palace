@@ -34,8 +34,23 @@ class SmokeTests(unittest.TestCase):
             outputs = renderer.render(plan, root / "build")
 
             self.assertTrue(outputs["manifest"].exists())
+            self.assertTrue(outputs["clear_commands"].exists())
             self.assertTrue(outputs["build_commands"].exists())
             self.assertTrue(outputs["preview"].exists())
+
+    def test_index_note_is_deprioritized_when_limited(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vault = Path(tmpdir) / "vault"
+            (vault / "Projects").mkdir(parents=True)
+            (vault / "Projects" / "index.md").write_text("# Index\n\n- [[real-note]]\n", encoding="utf-8")
+            (vault / "Projects" / "real-note.md").write_text(
+                "# Real Note\n\nThis is the actual content we want in the world.\n\n[[index]] [[other]]\n",
+                encoding="utf-8",
+            )
+            notes = parse_vault(vault, limit=1)
+
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0].path.name, "real-note.md")
 
 
 if __name__ == "__main__":

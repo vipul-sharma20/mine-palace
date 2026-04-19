@@ -77,6 +77,28 @@ class WorldPlan:
     def note_count(self) -> int:
         return sum(len(district.notes) for district in self.districts)
 
+    @property
+    def bounds(self) -> dict[str, int]:
+        min_x = self.origin_x - self.hub_radius
+        max_x = self.origin_x + self.hub_radius
+        min_z = self.origin_z - self.hub_radius
+        max_z = self.origin_z + self.hub_radius
+
+        for district in self.districts:
+            min_x = min(min_x, district.center_x - district.width // 2)
+            max_x = max(max_x, district.center_x + district.width // 2)
+            min_z = min(min_z, district.center_z - district.depth // 2)
+            max_z = max(max_z, district.center_z + district.depth // 2)
+
+        return {
+            "min_x": min_x,
+            "max_x": max_x,
+            "min_y": self.origin_y - 1,
+            "max_y": self.origin_y + 5,
+            "min_z": min_z,
+            "max_z": max_z,
+        }
+
     def to_manifest(self) -> dict[str, object]:
         return {
             "name": self.name,
@@ -86,5 +108,6 @@ class WorldPlan:
             "origin_z": self.origin_z,
             "hub_radius": self.hub_radius,
             "note_count": self.note_count,
+            "bounds": self.bounds,
             "districts": [district.to_manifest() for district in self.districts],
         }

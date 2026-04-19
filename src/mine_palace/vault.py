@@ -112,7 +112,7 @@ def _balanced_limit(notes: list[VaultNote], limit: int) -> list[VaultNote]:
         grouped[note.district].append(note)
 
     for items in grouped.values():
-        items.sort(key=lambda note: note.path.as_posix())
+        items.sort(key=_note_sort_key)
 
     ordered_districts = sorted(
         grouped,
@@ -134,6 +134,16 @@ def _balanced_limit(notes: list[VaultNote], limit: int) -> list[VaultNote]:
         iterators = next_iterators
 
     return selected
+
+
+def _note_sort_key(note: VaultNote) -> tuple[float, str]:
+    score = 0.0
+    if note.path.stem.lower() == "index":
+        score -= 4.0
+    score += min(len(note.content), 4_000) / 1000
+    score += len(note.links) * 2.0
+    score += len(note.tags) * 0.75
+    return (-score, note.path.as_posix())
 
 
 def _truncate_whitespace(text: str, limit: int) -> str:

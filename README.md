@@ -52,6 +52,11 @@ Apply the generated structure commands to a running Minecraft server over RCON:
 ```bash
 export MC_RCON_PASSWORD='...'
 PYTHONPATH=src python3 -m mine_palace.cli apply-rcon \
+  --commands build/demo/commands/clear.txt \
+  --host 127.0.0.1 \
+  --port 25575
+
+PYTHONPATH=src python3 -m mine_palace.cli apply-rcon \
   --commands build/demo/commands/build.txt \
   --host 127.0.0.1 \
   --port 25575
@@ -62,8 +67,10 @@ PYTHONPATH=src python3 -m mine_palace.cli apply-rcon \
 Running `plan` or `demo` generates:
 
 - `manifest.json`: structured world plan
+- `commands/clear.txt`: clear-and-reset commands for quick rebuilds
 - `commands/build.txt`: plain commands, safe for RCON replay
 - `commands/books.txt`: experimental written-book commands
+- `mcfunction/clear.mcfunction`: clear function file
 - `mcfunction/build.mcfunction`: structure build file
 - `mcfunction/books.mcfunction`: optional book placement function
 - `preview/index.html`: visual preview of the world layout

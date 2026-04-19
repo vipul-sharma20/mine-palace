@@ -94,6 +94,12 @@ class WorldRenderer:
         build_txt.write_text("\n".join(build_commands) + "\n", encoding="utf-8")
         build_mcfunction.write_text("\n".join(build_commands) + "\n", encoding="utf-8")
 
+        clear_commands = self._clear_commands(plan)
+        clear_txt = commands_dir / "clear.txt"
+        clear_mcfunction = mcfunction_dir / "clear.mcfunction"
+        clear_txt.write_text("\n".join(clear_commands) + "\n", encoding="utf-8")
+        clear_mcfunction.write_text("\n".join(clear_commands) + "\n", encoding="utf-8")
+
         books_path = commands_dir / "books.txt"
         books_function = mcfunction_dir / "books.mcfunction"
         if include_books:
@@ -109,12 +115,28 @@ class WorldRenderer:
 
         return {
             "manifest": manifest_path,
+            "clear_commands": clear_txt,
             "build_commands": build_txt,
             "book_commands": books_path,
+            "clear_mcfunction": clear_mcfunction,
             "build_mcfunction": build_mcfunction,
             "book_mcfunction": books_function,
             "preview": preview_path,
         }
+
+    def _clear_commands(self, plan: WorldPlan) -> list[str]:
+        bounds = plan.bounds
+        return [
+            f"# Clear Mine Palace bounds for {plan.name}",
+            (
+                f"fill {bounds['min_x']} {bounds['min_y']} {bounds['min_z']} "
+                f"{bounds['max_x']} {bounds['max_y']} {bounds['max_z']} air"
+            ),
+            (
+                f"fill {bounds['min_x']} {bounds['min_y']} {bounds['min_z']} "
+                f"{bounds['max_x']} {bounds['min_y']} {bounds['max_z']} grass_block"
+            ),
+        ]
 
     def _build_commands(self, plan: WorldPlan) -> list[str]:
         commands: list[str] = [
