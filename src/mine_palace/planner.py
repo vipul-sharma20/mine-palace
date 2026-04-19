@@ -132,22 +132,43 @@ def _build_diary_world_plan(
     if not years:
         raise ValueError("No dated notes found to build a diary world plan")
 
-    districts: list[DistrictPlan] = []
-    current_front_z = origin_z + 28
+    drafts: list[DistrictPlan] = []
     for index, year in enumerate(years):
         year_notes = sorted(grouped[year], key=_diary_note_key)
-        draft = _build_diary_district(
-            str(year),
-            year_notes,
-            center_x=origin_x,
-            center_z=0,
-            origin_y=origin_y,
-            palette=PALETTE_ORDER[index % len(PALETTE_ORDER)],
+        drafts.append(
+            _build_diary_district(
+                str(year),
+                year_notes,
+                center_x=0,
+                center_z=0,
+                origin_y=origin_y,
+                palette=PALETTE_ORDER[index % len(PALETTE_ORDER)],
+            )
         )
-        half_depth = draft.depth // 2
-        center_z = current_front_z + half_depth
-        districts.append(_translate_district(draft, center_x=origin_x, center_z=center_z))
-        current_front_z += draft.depth + 12
+
+    max_span = max(max(district.width, district.depth) for district in drafts)
+    if len(drafts) == 1:
+        radius = 0
+    else:
+        radius = max(
+            110,
+            math.ceil((max_span + 28) / (2 * math.sin(math.pi / len(drafts)))),
+        )
+
+    districts: list[DistrictPlan] = []
+    for index, draft in enumerate(drafts):
+        angle = (-math.pi / 2) + (2 * math.pi * index / len(drafts))
+        center_x = origin_x + round(math.cos(angle) * radius)
+        center_z = origin_z + round(math.sin(angle) * radius)
+        entrance_side = _entrance_side_facing_hub(center_x, center_z, origin_x, origin_z)
+        districts.append(
+            _translate_district(
+                draft,
+                center_x=center_x,
+                center_z=center_z,
+                entrance_side=entrance_side,
+            )
+        )
 
     return WorldPlan(
         name=name,
@@ -196,6 +217,7 @@ def _build_vault_district(
         depth=depth,
         entrance_x=entrance_x,
         entrance_z=entrance_z,
+        entrance_side="north",
         palette=palette,
         notes=placements,
     )
@@ -253,23 +275,33 @@ def _build_diary_district(
         depth=depth,
         entrance_x=entrance_x,
         entrance_z=entrance_z,
+        entrance_side="north",
         palette=palette,
         notes=placements,
         markers=markers,
     )
 
 
-def _translate_district(district: DistrictPlan, *, center_x: int, center_z: int) -> DistrictPlan:
+def _translate_district(
+    district: DistrictPlan,
+    *,
+    center_x: int,
+    center_z: int,
+    entrance_side: str | None = None,
+) -> DistrictPlan:
     delta_x = center_x - district.center_x
     delta_z = center_z - district.center_z
+    resolved_side = entrance_side or district.entrance_side
+    entrance_x, entrance_z = _entrance_coordinates(center_x, center_z, district.width, district.depth, resolved_side)
     return DistrictPlan(
         name=district.name,
         center_x=center_x,
         center_z=center_z,
         width=district.width,
         depth=district.depth,
-        entrance_x=district.entrance_x + delta_x,
-        entrance_z=district.entrance_z + delta_z,
+        entrance_x=entrance_x,
+        entrance_z=entrance_z,
+        entrance_side=resolved_side,
         palette=district.palette,
         notes=[
             NotePlacement(note=placement.note, x=placement.x + delta_x, y=placement.y, z=placement.z + delta_z)
@@ -289,3 +321,25 @@ def _translate_district(district: DistrictPlan, *, center_x: int, center_z: int)
 
 def _diary_note_key(note: VaultNote) -> tuple[int, int, str]:
     return (note.month or 0, note.day or 0, note.path.as_posix())
+
+
+def _entrance_side_facing_hub(center_x: int, center_z: int, hub_x: int, hub_z: int) -> str:
+    delta_x = hub_x - center_x
+    delta_z = hub_z - center_z
+    if abs(delta_x) > abs(delta_z):
+        return "east" if delta_x > 0 else "west"
+    return "south" if delta_z > 0 else "north"
+
+
+def _entrance_coordinates(center_x: int, center_z: int, width: int, depth: int, side: str) -> tuple[int, int]:
+    half_width = width // 2
+    half_depth = depth // 2
+    if side == "north":
+        return center_x, center_z - half_depth
+    if side == "south":
+        return center_x, center_z + half_depth
+    if side == "west":
+        return center_x - half_width, center_z
+    if side == "east":
+        return center_x + half_width, center_z
+    raise ValueError(f"Unsupported entrance side: {side}")

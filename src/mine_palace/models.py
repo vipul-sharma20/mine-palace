@@ -65,6 +65,7 @@ class DistrictPlan:
     depth: int
     entrance_x: int
     entrance_z: int
+    entrance_side: str
     palette: str
     notes: list[NotePlacement] = field(default_factory=list)
     markers: list[DistrictMarker] = field(default_factory=list)
@@ -78,6 +79,7 @@ class DistrictPlan:
             "depth": self.depth,
             "entrance_x": self.entrance_x,
             "entrance_z": self.entrance_z,
+            "entrance_side": self.entrance_side,
             "palette": self.palette,
             "notes": [note.to_manifest() for note in self.notes],
             "markers": [marker.to_manifest() for marker in self.markers],

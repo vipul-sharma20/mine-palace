@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from .models import DistrictPlan, NotePlacement, WorldPlan
@@ -221,8 +222,9 @@ class WorldRenderer:
         )
 
         for index, district in enumerate(plan.districts[:8]):
-            sign_x = plan.origin_x - 7 + (index % 4) * 5
-            sign_z = plan.origin_z + 5 if index < 4 else plan.origin_z + 7
+            angle = (-math.pi / 2) + (2 * math.pi * index / max(1, min(8, len(plan.districts))))
+            sign_x = plan.origin_x + round(math.cos(angle) * (r + 7))
+            sign_z = plan.origin_z + round(math.sin(angle) * (r + 7))
             commands.extend(
                 [
                     f"setblock {sign_x} {y + 1} {sign_z} smooth_stone",
@@ -241,19 +243,9 @@ class WorldRenderer:
         y = plan.origin_y
         palette = PALETTES[district.palette]
         path_block = palette["path"]
-        x1 = plan.origin_x
-        z1 = plan.origin_z + plan.hub_radius + 1
-        x2 = district.entrance_x
-        z2 = district.entrance_z - 1
-
-        commands = [
-            f"fill {min(x1, x2)} {y} {z1 - 1} {max(x1, x2)} {y} {z1 + 1} {path_block}",
-            f"fill {min(x1, x2)} {y} {z1 - 2} {max(x1, x2)} {y} {z1 - 2} {palette['trim']}",
-            f"fill {min(x1, x2)} {y} {z1 + 2} {max(x1, x2)} {y} {z1 + 2} {palette['trim']}",
-            f"fill {x2 - 1} {y} {min(z1, z2)} {x2 + 1} {y} {max(z1, z2)} {path_block}",
-            f"fill {x2 - 2} {y} {min(z1, z2)} {x2 - 2} {y} {max(z1, z2)} {palette['trim']}",
-            f"fill {x2 + 2} {y} {min(z1, z2)} {x2 + 2} {y} {max(z1, z2)} {palette['trim']}",
-        ]
+        commands = []
+        commands.extend(self._path_segment(plan.origin_x, plan.origin_z, district.entrance_x, plan.origin_z, y, path_block, palette["trim"]))
+        commands.extend(self._path_segment(district.entrance_x, plan.origin_z, district.entrance_x, district.entrance_z, y, path_block, palette["trim"]))
         return commands
 
     def _render_district(self, plan: WorldPlan, district: DistrictPlan) -> list[str]:
@@ -274,32 +266,25 @@ class WorldRenderer:
             f"fill {x1} {y} {z2} {x2} {y} {z2} {palette['trim']}",
             f"fill {x1} {y} {z1} {x1} {y} {z2} {palette['trim']}",
             f"fill {x2} {y} {z1} {x2} {y} {z2} {palette['trim']}",
-            f"fill {district.entrance_x - 1} {y} {z1} {district.entrance_x + 1} {y} {z2 - 2} {palette['path']}",
-            f"fill {x1} {y + 4} {z1} {district.entrance_x - 2} {y + 4} {z1} {palette['trim']}",
-            f"fill {district.entrance_x + 2} {y + 4} {z1} {x2} {y + 4} {z1} {palette['trim']}",
+            f"fill {x1} {y + 4} {z1} {x2} {y + 4} {z1} {palette['trim']}",
             f"fill {x1} {y + 4} {z2} {x2} {y + 4} {z2} {palette['trim']}",
             f"fill {x1} {y + 4} {z1} {x1} {y + 4} {z2} {palette['trim']}",
             f"fill {x2} {y + 4} {z1} {x2} {y + 4} {z2} {palette['trim']}",
-            self._standing_sign(
-                district.entrance_x,
-                y + 1,
-                z1 - 1,
-                [district.name[:15], f"{len(district.notes)} notes", "Enter", ""],
-            ),
         ]
 
         commands.extend(self._column_commands(x1, y + 1, y + 4, z1, palette["wall"]))
-        commands.extend(self._column_commands(x2, y + 1, y + 4, z1, palette["wall"]))
         commands.extend(self._column_commands(x1, y + 1, y + 4, z2, palette["wall"]))
+        commands.extend(self._column_commands(x2, y + 1, y + 4, z1, palette["wall"]))
         commands.extend(self._column_commands(x2, y + 1, y + 4, z2, palette["wall"]))
-        commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z1, palette["wall"]))
-        commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z1, palette["wall"]))
         commands.extend(
             [
-                f"setblock {district.entrance_x - 2} {y + 5} {z1} lantern",
-                f"setblock {district.entrance_x + 2} {y + 5} {z1} lantern",
+                f"setblock {x1} {y + 5} {z1} lantern",
+                f"setblock {x2} {y + 5} {z1} lantern",
+                f"setblock {x1} {y + 5} {z2} lantern",
+                f"setblock {x2} {y + 5} {z2} lantern",
             ]
         )
+        commands.extend(self._district_entry_commands(district, y, x1, x2, z1, z2, palette))
 
         for note in district.notes:
             commands.extend(self._render_note_alcove(note, palette))
@@ -320,8 +305,8 @@ class WorldRenderer:
         commands = [
             f"fill {x - 2} {y - 1} {z - 2} {x + 2} {y - 1} {z + 2} {palette['trim']}",
             f"fill {x - 2} {y} {z - 2} {x + 2} {y + 3} {z - 2} {palette['wall']}",
-            f"fill {x - 2} {y} {z - 2} {x - 2} {y + 2} {z + 1} {palette['wall']}",
-            f"fill {x + 2} {y} {z - 2} {x + 2} {y + 2} {z + 1} {palette['wall']}",
+            f"fill {x - 2} {y} {z - 2} {x - 2} {y + 2} {z - 1} {palette['wall']}",
+            f"fill {x + 2} {y} {z - 2} {x + 2} {y + 2} {z - 1} {palette['wall']}",
             f"fill {x - 2} {y + 3} {z - 2} {x + 2} {y + 3} {z - 2} {palette['trim']}",
             f"setblock {x} {y} {z - 1} chiseled_bookshelf",
             f"setblock {x - 1} {y} {z - 1} bookshelf",
@@ -347,6 +332,64 @@ class WorldRenderer:
 
     def _column_commands(self, x: int, y1: int, y2: int, z: int, block: str) -> list[str]:
         return [f"fill {x} {y1} {z} {x} {y2} {z} {block}"]
+
+    def _path_segment(self, x1: int, z1: int, x2: int, z2: int, y: int, path_block: str, trim_block: str) -> list[str]:
+        if x1 == x2 and z1 == z2:
+            return []
+        if z1 == z2:
+            return [
+                f"fill {min(x1, x2)} {y} {z1 - 1} {max(x1, x2)} {y} {z1 + 1} {path_block}",
+                f"fill {min(x1, x2)} {y} {z1 - 2} {max(x1, x2)} {y} {z1 - 2} {trim_block}",
+                f"fill {min(x1, x2)} {y} {z1 + 2} {max(x1, x2)} {y} {z1 + 2} {trim_block}",
+            ]
+        if x1 == x2:
+            return [
+                f"fill {x1 - 1} {y} {min(z1, z2)} {x1 + 1} {y} {max(z1, z2)} {path_block}",
+                f"fill {x1 - 2} {y} {min(z1, z2)} {x1 - 2} {y} {max(z1, z2)} {trim_block}",
+                f"fill {x1 + 2} {y} {min(z1, z2)} {x1 + 2} {y} {max(z1, z2)} {trim_block}",
+            ]
+        raise ValueError("Path segments must be axis-aligned")
+
+    def _district_entry_commands(
+        self,
+        district: DistrictPlan,
+        y: int,
+        x1: int,
+        x2: int,
+        z1: int,
+        z2: int,
+        palette: dict[str, str],
+    ) -> list[str]:
+        commands: list[str] = []
+        if district.entrance_side == "north":
+            commands.extend(self._path_segment(district.entrance_x, z1, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
+            commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z1, palette["wall"]))
+            commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z1, palette["wall"]))
+            commands.extend([f"setblock {district.entrance_x - 2} {y + 5} {z1} lantern", f"setblock {district.entrance_x + 2} {y + 5} {z1} lantern"])
+            commands.append(self._standing_sign(district.entrance_x, y + 1, z1 - 1, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            return commands
+        if district.entrance_side == "south":
+            commands.extend(self._path_segment(district.entrance_x, z2, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
+            commands.extend(self._column_commands(district.entrance_x - 2, y + 1, y + 4, z2, palette["wall"]))
+            commands.extend(self._column_commands(district.entrance_x + 2, y + 1, y + 4, z2, palette["wall"]))
+            commands.extend([f"setblock {district.entrance_x - 2} {y + 5} {z2} lantern", f"setblock {district.entrance_x + 2} {y + 5} {z2} lantern"])
+            commands.append(self._standing_sign(district.entrance_x, y + 1, z2 + 1, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            return commands
+        if district.entrance_side == "west":
+            commands.extend(self._path_segment(x1, district.entrance_z, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
+            commands.extend(self._column_commands(x1, y + 1, y + 4, district.entrance_z - 2, palette["wall"]))
+            commands.extend(self._column_commands(x1, y + 1, y + 4, district.entrance_z + 2, palette["wall"]))
+            commands.extend([f"setblock {x1} {y + 5} {district.entrance_z - 2} lantern", f"setblock {x1} {y + 5} {district.entrance_z + 2} lantern"])
+            commands.append(self._standing_sign(x1 - 1, y + 1, district.entrance_z, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            return commands
+        if district.entrance_side == "east":
+            commands.extend(self._path_segment(x2, district.entrance_z, district.center_x, district.center_z, y, palette["path"], palette["trim"]))
+            commands.extend(self._column_commands(x2, y + 1, y + 4, district.entrance_z - 2, palette["wall"]))
+            commands.extend(self._column_commands(x2, y + 1, y + 4, district.entrance_z + 2, palette["wall"]))
+            commands.extend([f"setblock {x2} {y + 5} {district.entrance_z - 2} lantern", f"setblock {x2} {y + 5} {district.entrance_z + 2} lantern"])
+            commands.append(self._standing_sign(x2 + 1, y + 1, district.entrance_z, [district.name[:15], f"{len(district.notes)} notes", "Enter", ""]))
+            return commands
+        raise ValueError(f"Unsupported entrance side: {district.entrance_side}")
 
     def _book_commands(self, plan: WorldPlan) -> list[str]:
         commands = [f"# Experimental written-book placement for {plan.name}"]
