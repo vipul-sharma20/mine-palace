@@ -539,7 +539,7 @@ class WorldRenderer:
 
 def _sign_nbt(lines: list[str]) -> str:
     padded = (lines + ["", "", "", ""])[:4]
-    messages = ",".join(_snbt_single_quote(json.dumps({"text": line[:15]})) for line in padded)
+    messages = ",".join(_snbt_single_quote(line[:15]) for line in padded)
     return "{front_text:{messages:[" + messages + "]},is_waxed:1b}"
 
 
