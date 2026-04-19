@@ -40,6 +40,25 @@ def build_parser() -> argparse.ArgumentParser:
     apply_parser.add_argument("--progress-every", type=int, default=25)
     apply_parser.set_defaults(func=cmd_apply_rcon)
 
+    deploy_parser = subparsers.add_parser(
+        "deploy-rcon",
+        help="Apply clear/build/books phases from a generated artifact directory over RCON.",
+    )
+    deploy_parser.add_argument(
+        "--artifacts",
+        type=Path,
+        required=True,
+        help="Generated output directory that contains commands/*.txt files.",
+    )
+    deploy_parser.add_argument("--host", default="127.0.0.1")
+    deploy_parser.add_argument("--port", type=int, default=25575)
+    deploy_parser.add_argument("--password", help="RCON password. Falls back to MC_RCON_PASSWORD.")
+    deploy_parser.add_argument("--rate-limit-ms", type=int, default=0)
+    deploy_parser.add_argument("--progress-every", type=int, default=25)
+    deploy_parser.add_argument("--skip-clear", action="store_true", help="Skip clear.txt before building.")
+    deploy_parser.add_argument("--skip-books", action="store_true", help="Skip optional books.txt phase.")
+    deploy_parser.set_defaults(func=cmd_deploy_rcon)
+
     return parser
 
 
@@ -130,15 +149,8 @@ def _plan_from_vault(
 
 
 def cmd_apply_rcon(args: argparse.Namespace) -> int:
-    password = args.password or os.environ.get("MC_RCON_PASSWORD")
-    if not password:
-        raise SystemExit("Missing RCON password. Provide --password or set MC_RCON_PASSWORD.")
-
-    commands = [
-        line.strip()
-        for line in args.commands.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    password = _resolve_rcon_password(args.password)
+    commands = _read_commands(args.commands)
 
     with RconClient(args.host, args.port, password) as client:
         client.command_many(
@@ -149,6 +161,72 @@ def cmd_apply_rcon(args: argparse.Namespace) -> int:
 
     print(f"Applied commands from {args.commands}")
     return 0
+
+
+def cmd_deploy_rcon(args: argparse.Namespace) -> int:
+    password = _resolve_rcon_password(args.password)
+    phases = _command_batches_from_artifacts(
+        args.artifacts,
+        skip_clear=args.skip_clear,
+        skip_books=args.skip_books,
+    )
+
+    with RconClient(args.host, args.port, password) as client:
+        for label, path, commands in phases:
+            print(f"Applying {label} from {path}")
+            client.command_many(
+                commands,
+                rate_limit_ms=args.rate_limit_ms,
+                progress_every=args.progress_every,
+            )
+
+    print(f"Deployment complete from {args.artifacts}")
+    return 0
+
+
+def _resolve_rcon_password(cli_password: str | None) -> str:
+    password = cli_password or os.environ.get("MC_RCON_PASSWORD")
+    if not password:
+        raise SystemExit("Missing RCON password. Provide --password or set MC_RCON_PASSWORD.")
+    return password
+
+
+def _command_batches_from_artifacts(
+    artifacts_dir: Path,
+    *,
+    skip_clear: bool,
+    skip_books: bool,
+) -> list[tuple[str, Path, list[str]]]:
+    commands_dir = artifacts_dir / "commands"
+    phases: list[tuple[str, Path, list[str]]] = []
+
+    if not skip_clear:
+        clear_path = commands_dir / "clear.txt"
+        phases.append(("clear", clear_path, _read_commands(clear_path)))
+
+    build_path = commands_dir / "build.txt"
+    phases.append(("build", build_path, _read_commands(build_path)))
+
+    if not skip_books:
+        books_path = commands_dir / "books.txt"
+        book_commands = _read_commands(books_path, required=False)
+        if book_commands:
+            phases.append(("books", books_path, book_commands))
+
+    return phases
+
+
+def _read_commands(path: Path, *, required: bool = True) -> list[str]:
+    if not path.exists():
+        if required:
+            raise SystemExit(f"Missing command file: {path}")
+        return []
+
+    return [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def main() -> int:

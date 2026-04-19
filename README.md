@@ -62,6 +62,18 @@ PYTHONPATH=src python3 -m mine_palace.cli apply-rcon \
   --port 25575
 ```
 
+Or deploy an entire generated artifact directory in one step:
+
+```bash
+export MC_RCON_PASSWORD='...'
+PYTHONPATH=src python3 -m mine_palace.cli deploy-rcon \
+  --artifacts build/demo \
+  --host 127.0.0.1 \
+  --port 25575
+```
+
+If written-book commands do not match your server version, add `--skip-books`.
+
 ## Output Structure
 
 Running `plan` or `demo` generates:
