@@ -281,23 +281,32 @@ class WorldRenderer:
         commands = [f"# Experimental written-book placement for {plan.name}"]
         for district in plan.districts:
             for placement in district.notes:
-                commands.append(self._barrel_book_command(placement))
+                commands.extend(self._shelf_book_commands(placement))
+                commands.append(self._lectern_book_command(placement))
         return commands
 
-    def _barrel_book_command(self, placement: NotePlacement) -> str:
+    def _shelf_book_commands(self, placement: NotePlacement) -> list[str]:
+        x = placement.x
+        y = placement.y
+        z = placement.z - 1
+        commands = [
+            f"item replace block {x} {y} {z} container.0 with book 1",
+            f"item replace block {x} {y} {z} container.1 with book 1",
+            f"item replace block {x} {y} {z} container.2 with book 1",
+            f"item replace block {x} {y} {z} container.3 with book 1",
+            f"item replace block {x} {y} {z} container.4 with book 1",
+            f"item replace block {x} {y} {z} container.5 with book 1",
+        ]
+        return commands
+
+    def _lectern_book_command(self, placement: NotePlacement) -> str:
         note = placement.note
-        pages = _book_pages(note.content)
-        component = ",".join(_snbt_single_quote(json.dumps({"text": page})) for page in pages)
-        title = _snbt_single_quote(note.title[:32])
-        author = _snbt_single_quote("Mine Palace")
-        book_item = (
-            "written_book[written_book_content={"
-            f"title:{title},author:{author},pages:[{component}]"
-            "}]"
-        )
+        pages = ",".join(_lectern_page_component(page) for page in _book_pages(note.content))
         return (
-            f"item replace block {placement.x} {placement.y} {placement.z + 1} container.0 "
-            f"with {book_item} 1"
+            f"data merge block {placement.x} {placement.y} {placement.z} "
+            "{Book:{id:'minecraft:written_book',count:1,components:{'minecraft:written_book_content':{"
+            f"pages:[{pages}],author:{_snbt_single_quote('Mine Palace')},title:{_lectern_title_component(note.title)}"
+            "}}},Page:0}"
         )
 
     def _standing_sign(self, x: int, y: int, z: int, lines: list[str]) -> str:
@@ -564,6 +573,14 @@ def _linebreak_title(title: str) -> tuple[str, str]:
     line_1 = " ".join(words[:midpoint])[:15]
     line_2 = " ".join(words[midpoint:])[:15]
     return (line_1, line_2)
+
+
+def _lectern_page_component(text: str) -> str:
+    return "{raw:" + _snbt_single_quote(text) + "}"
+
+
+def _lectern_title_component(title: str) -> str:
+    return "{raw:" + _snbt_single_quote(title[:32]) + "}"
 
 
 def _fill_commands(
